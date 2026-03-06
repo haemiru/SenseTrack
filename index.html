@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="SenseTrack — 다감각 반응 실시간 분석 플랫폼. MediaPipe 기반 얼굴 랜드마크, 호흡 패턴, 자극 반응을 실시간으로 추적합니다." />
+  <meta name="theme-color" content="#0f172a" />
+  <title>SenseTrack — 다감각 반응 분석</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="/src/styles/index.css" />
+</head>
+
+<body>
+  <div id="app">
+    <!-- App Shell -->
+    <div class="app-shell">
+      <!-- Header -->
+      <header class="app-header" id="appHeader">
+        <div class="header-left">
+          <div class="logo-icon">
+            <span class="material-symbols-outlined">monitoring</span>
+          </div>
+          <h1 class="app-title">SenseTrack</h1>
+        </div>
+        <div class="header-right">
+          <div class="status-badge" id="statusBadge">
+            <span class="status-dot">
+              <span class="status-dot-ping"></span>
+              <span class="status-dot-core"></span>
+            </span>
+            <span class="status-text">준비 중</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="app-main" id="appMain">
+        <!-- Screen: Dashboard -->
+        <section class="screen screen--dashboard" id="screenDashboard">
+          <!-- Camera Viewport -->
+          <div class="camera-section">
+            <div class="camera-viewport" id="cameraViewport">
+              <video id="cameraFeed" autoplay playsinline muted></video>
+              <canvas id="faceMeshCanvas"></canvas>
+              <!-- dB Overlay -->
+              <div class="db-overlay" id="dbOverlay">
+                <div class="db-bar" style="height:40%"></div>
+                <div class="db-bar" style="height:60%"></div>
+                <div class="db-bar" style="height:80%"></div>
+                <div class="db-bar" style="height:50%"></div>
+                <span class="db-value" id="dbValue">-- dB</span>
+              </div>
+              <!-- Face Mesh SVG overlay -->
+              <div class="face-mesh-overlay" id="faceMeshOverlay">
+                <svg viewBox="0 0 100 100" class="face-mesh-svg">
+                  <path d="M50 20 C60 20 75 35 75 55 C75 75 60 85 50 85 C40 85 25 75 25 55 C25 35 40 20 50 20"
+                    fill="none" stroke="currentColor" stroke-dasharray="2 2" stroke-width="0.5" />
+                  <circle cx="38" cy="45" r="2" fill="currentColor" />
+                  <circle cx="62" cy="45" r="2" fill="currentColor" />
+                  <path d="M40 70 Q50 75 60 70" fill="none" stroke="currentColor" stroke-width="1" />
+                </svg>
+              </div>
+              <!-- Controls -->
+              <button class="camera-toggle" id="cameraToggle" aria-label="카메라 시작">
+                <span class="material-symbols-outlined" id="cameraToggleIcon">videocam</span>
+              </button>
+              <div class="camera-badges">
+                <span class="badge badge--live" id="liveBadge" style="display:none;">LIVE</span>
+                <span class="badge badge--info">CAM 01 — AI ANALYSIS</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stimulus Setup & Control -->
+          <div class="section stimulus-section">
+            <div class="section-header">
+              <h3 class="section-title">자극 설정</h3>
+              <div class="timer" id="sessionTimer">
+                <span class="timer-segment">00</span>
+                <span class="timer-sep">:</span>
+                <span class="timer-segment">00</span>
+              </div>
+            </div>
+
+            <!-- Stimulus Type Selector -->
+            <div class="stim-type-tabs">
+              <button class="stim-tab active" id="tabOlfactory" data-category="olfactory">
+                <span class="material-symbols-outlined">eco</span>
+                후각
+              </button>
+              <button class="stim-tab" id="tabAuditory" data-category="auditory">
+                <span class="material-symbols-outlined">hearing</span>
+                청각
+              </button>
+            </div>
+
+            <!-- Olfactory Options -->
+            <div class="stim-options" id="olfactoryOptions">
+              <button class="stim-chip active" data-stimulus="lavender">
+                <span class="stim-chip-dot" style="background:#a78bfa"></span>
+                라벤더
+              </button>
+              <button class="stim-chip" data-stimulus="orange">
+                <span class="stim-chip-dot" style="background:#fb923c"></span>
+                오렌지
+              </button>
+              <button class="stim-chip" data-stimulus="peppermint">
+                <span class="stim-chip-dot" style="background:#34d399"></span>
+                페퍼민트
+              </button>
+              <button class="stim-chip" data-stimulus="eucalyptus">
+                <span class="stim-chip-dot" style="background:#2dd4bf"></span>
+                유칼립투스
+              </button>
+              <button class="stim-chip" data-stimulus="coffee">
+                <span class="stim-chip-dot" style="background:#a16207"></span>
+                커피
+              </button>
+              <button class="stim-chip" data-stimulus="vanilla">
+                <span class="stim-chip-dot" style="background:#fbbf24"></span>
+                바닐라
+              </button>
+              <button class="stim-chip" data-stimulus="cedarwood">
+                <span class="stim-chip-dot" style="background:#8b5a2b"></span>
+                시더우드
+              </button>
+              <button class="stim-chip" data-stimulus="lemon">
+                <span class="stim-chip-dot" style="background:#eab308"></span>
+                레몬
+              </button>
+            </div>
+
+            <!-- Auditory Options -->
+            <div class="stim-options" id="auditoryOptions" style="display:none">
+              <button class="stim-chip active" data-stimulus="singingbowl_a">
+                <span class="stim-chip-dot" style="background:#ef4444"></span>
+                싱잉볼 A
+              </button>
+              <button class="stim-chip" data-stimulus="singingbowl_b">
+                <span class="stim-chip-dot" style="background:#f97316"></span>
+                싱잉볼 B
+              </button>
+              <button class="stim-chip" data-stimulus="singingbowl_c">
+                <span class="stim-chip-dot" style="background:#eab308"></span>
+                싱잉볼 C
+              </button>
+              <button class="stim-chip" data-stimulus="singingbowl_d">
+                <span class="stim-chip-dot" style="background:#22c55e"></span>
+                싱잉볼 D
+              </button>
+              <button class="stim-chip" data-stimulus="singingbowl_e">
+                <span class="stim-chip-dot" style="background:#3b82f6"></span>
+                싱잉볼 E
+              </button>
+              <button class="stim-chip" data-stimulus="singingbowl_f">
+                <span class="stim-chip-dot" style="background:#6366f1"></span>
+                싱잉볼 F
+              </button>
+              <button class="stim-chip" data-stimulus="singingbowl_g">
+                <span class="stim-chip-dot" style="background:#a855f7"></span>
+                싱잉볼 G
+              </button>
+            </div>
+
+            <!-- Apply Stimulus Button -->
+            <button class="stim-apply-btn" id="stimApplyBtn">
+              <div class="stim-apply-inner">
+                <span class="material-symbols-outlined" id="stimApplyIcon">play_arrow</span>
+                <span id="stimApplyText">자극 적용</span>
+              </div>
+              <span class="stim-apply-hint" id="stimApplyHint">자극을 줄 때 눌러주세요</span>
+            </button>
+
+            <!-- Reaction Tracking Indicator (shown during tracking) -->
+            <div class="reaction-tracker" id="reactionTracker" style="display:none">
+              <div class="reaction-tracker-pulse"></div>
+              <div class="reaction-tracker-info">
+                <span class="reaction-tracker-label">반응 추적 중...</span>
+                <span class="reaction-tracker-time" id="reactionTrackerTime">0.0초</span>
+              </div>
+              <button class="reaction-tracker-skip" id="reactionSkipBtn">반응 없음</button>
+            </div>
+          </div>
+
+          <!-- Stimulus Log Timeline -->
+          <div class="section log-section" id="logSection" style="display:none">
+            <div class="section-header">
+              <h3 class="section-title">자극 기록</h3>
+              <span class="log-count" id="logCount">0건</span>
+            </div>
+            <div class="stim-log" id="stimLog">
+              <!-- Dynamic entries inserted here -->
+            </div>
+          </div>
+
+          <!-- Real-time Metrics -->
+          <div class="section metrics-section">
+            <h3 class="section-title">실시간 분석 지표</h3>
+            <div class="metrics-grid">
+              <div class="metric-card" id="metricBreathing">
+                <p class="metric-label">호흡 안정도</p>
+                <div class="metric-value-row">
+                  <span class="metric-value" id="breathingValue">--%</span>
+                  <span class="material-symbols-outlined metric-trend metric-trend--up">trending_up</span>
+                </div>
+                <div class="metric-bar">
+                  <div class="metric-bar-fill metric-bar-fill--green" id="breathingBar" style="width:0%"></div>
+                </div>
+              </div>
+              <div class="metric-card" id="metricReaction">
+                <p class="metric-label">최근 반응 시간</p>
+                <div class="metric-value-row">
+                  <span class="metric-value" id="reactionValue">--<small>초</small></span>
+                  <span class="material-symbols-outlined metric-trend metric-trend--blue">timer</span>
+                </div>
+                <p class="metric-sub" id="reactionSub">대기 중</p>
+              </div>
+              <div class="metric-card" id="metricHead">
+                <p class="metric-label">고개 움직임</p>
+                <div class="metric-value-row">
+                  <span class="metric-value" id="headValue">--<small>도</small></span>
+                  <span class="material-symbols-outlined metric-trend metric-trend--amber">screen_rotation</span>
+                </div>
+                <p class="metric-sub" id="headSub">대기 중</p>
+              </div>
+              <div class="metric-card" id="metricVoice">
+                <p class="metric-label">발성 지속 시간</p>
+                <div class="metric-value-row">
+                  <span class="metric-value" id="voiceValue">--<small>초</small></span>
+                  <span class="material-symbols-outlined metric-trend metric-trend--indigo">mic</span>
+                </div>
+                <p class="metric-sub" id="voiceSub">대기 중</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Screen: Report (Bottom Sheet style) -->
+        <div class="report-overlay" id="reportOverlay">
+          <div class="report-sheet" id="reportSheet">
+            <div class="report-handle"></div>
+            <div class="report-header">
+              <button class="report-close" id="reportClose">
+                <span class="material-symbols-outlined">close</span>
+              </button>
+              <h2 class="report-title">오늘의 다감각 반응 요약</h2>
+              <div style="width:40px"></div>
+            </div>
+            <div class="report-body" id="reportBody">
+              <!-- Respiratory Analysis -->
+              <div class="report-section">
+                <div class="report-section-header">
+                  <span class="material-symbols-outlined report-section-icon">vital_signs</span>
+                  <h3>호흡 패턴 분석 결과</h3>
+                </div>
+                <div class="report-chart-card">
+                  <div class="report-chart-header">
+                    <div>
+                      <p class="report-chart-label">호흡 안정도 추이</p>
+                      <h4 class="report-chart-value" id="reportBreathingStatus">분석 중</h4>
+                    </div>
+                    <div class="report-badge report-badge--green" id="reportBreathingChange">
+                      <span class="material-symbols-outlined">trending_up</span>
+                      <span id="reportBreathingPct">--%</span>
+                    </div>
+                  </div>
+                  <div class="report-chart">
+                    <div style="position: relative; height: 160px; width: 100%;">
+                      <canvas id="reportChartCanvas"></canvas>
+                    </div>
+                    <div class="report-chart-labels">
+                      <span>세션 시작</span>
+                      <span>중간 지점</span>
+                      <span>세션 종료</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sensory Response Breakdown (dynamic) -->
+              <div class="report-section">
+                <div class="report-section-header">
+                  <span class="material-symbols-outlined report-section-icon">psychology</span>
+                  <h3>감각 반응 상세 분석</h3>
+                </div>
+                <div class="response-cards" id="reportResponseCards">
+                  <!-- Dynamically populated from stimulus log -->
+                </div>
+              </div>
+
+              <!-- Stimulus Timeline in Report -->
+              <div class="report-section">
+                <div class="report-section-header">
+                  <span class="material-symbols-outlined report-section-icon">timeline</span>
+                  <h3>자극 적용 기록</h3>
+                </div>
+                <div class="report-timeline" id="reportTimeline">
+                  <!-- Dynamically populated -->
+                </div>
+              </div>
+
+              <!-- Professional Recommendation -->
+              <div class="report-section">
+                <div class="recommendation-card">
+                  <div class="recommendation-top">
+                    <span class="material-symbols-outlined recommendation-icon">clinical_notes</span>
+                    <div>
+                      <p class="recommendation-title">전문가 의견</p>
+                      <p class="recommendation-text" id="reportRecommendation">
+                        세션 데이터를 분석 중입니다. 측정 완료 후 전문가 의견이 생성됩니다.
+                      </p>
+                    </div>
+                  </div>
+                  <button class="recommendation-btn">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                    전문가 상담 예약 (서울 센터)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Report Footer -->
+            <div class="report-footer">
+              <button class="btn btn--primary btn--lg" id="reportSave">분석 보고서 저장 및 닫기</button>
+              <p class="report-disclaimer">본 결과는 의료적 진단을 대신할 수 없으며, 참고용으로만 사용하십시오.</p>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Footer Action -->
+      <div class="app-footer" id="appFooter">
+        <button class="btn btn--sage btn--lg" id="endSessionBtn">
+          <span class="material-symbols-outlined">analytics</span>
+          측정 종료 및 리포트 생성
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
