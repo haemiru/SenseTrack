@@ -1,15 +1,15 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc } from 'firebase/firestore';
 
-// Todo: Firebase 콘솔에서 발급받은 실제 설정값으로 교체해주세요
+// Firebase 설정값은 .env 파일에서 환경변수로 불러옵니다 (.env.example 참조)
 const firebaseConfig = {
-    apiKey: "***REMOVED***",
-    authDomain: "sensetrack-8b5c0.firebaseapp.com",
-    projectId: "sensetrack-8b5c0",
-    storageBucket: "sensetrack-8b5c0.firebasestorage.app",
-    messagingSenderId: "125028947877",
-    appId: "1:125028947877:web:0e9561601acc6e235f3a4c",
-    measurementId: "G-4JRQD8HFXJ"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
