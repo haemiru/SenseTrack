@@ -12,6 +12,7 @@ import { AudioAnalyzer } from './mediapipe/audioAnalyzer.js';
 import { SessionManager } from './session/sessionManager.js';
 import Chart from 'chart.js/auto';
 import { saveSessionReport } from './firebase.js';
+import { AIAnalyzer } from './session/aiAnalyzer.js';
 
 class SenseTrackApp {
     constructor() {
@@ -19,6 +20,7 @@ class SenseTrackApp {
         this.faceTracker = new FaceTracker();
         this.audioAnalyzer = new AudioAnalyzer();
         this.sessionManager = new SessionManager();
+        this.aiAnalyzer = new AIAnalyzer();
 
         // 카메라
         this.cameraStream = null;
@@ -120,6 +122,7 @@ class SenseTrackApp {
             reportResponseCards: document.getElementById('reportResponseCards'),
             reportTimeline: document.getElementById('reportTimeline'),
             reportRecommendation: document.getElementById('reportRecommendation'),
+            bookingBtn: document.getElementById('bookingBtn'),
         };
     }
 
@@ -174,6 +177,11 @@ class SenseTrackApp {
         this.dom.reportOverlay.addEventListener('click', (e) => {
             if (e.target === this.dom.reportOverlay) this.closeReport();
         });
+
+        // 상담 예약 버튼 처리
+        if (this.dom.bookingBtn) {
+            this.dom.bookingBtn.addEventListener('click', () => this.handleBooking());
+        }
 
         // 세션 관리자 콜백
         this.sessionManager.onTimerUpdate((mins, secs) => {
@@ -522,7 +530,7 @@ class SenseTrackApp {
     /**
      * 세션 종료 → 리포트 생성 → 리포트 시트 열기
      */
-    endSession() {
+    async endSession() {
         if (!this.sessionManager.isActive) {
             // 세션이 활성화되지 않았으면 데모 리포트 표시
             this.showDemoReport();
@@ -533,13 +541,13 @@ class SenseTrackApp {
         this.audioAnalyzer.destroy();
 
         const report = this.sessionManager.end();
-        this.showReport(report);
+        await this.showReport(report);
     }
 
     /**
      * 리포트 표시
      */
-    showReport(report) {
+    async showReport(report) {
         this.currentReportData = report;
 
         // 호흡 상태
@@ -617,12 +625,22 @@ class SenseTrackApp {
             this.dom.reportTimeline.innerHTML = '<p style="color:var(--text-tertiary);font-size:13px;text-align:center;">기록이 없습니다.</p>';
         }
 
-        // 전문가 의견
-        this.dom.reportRecommendation.textContent = report.recommendation;
+        // 전문가 의견 (기본 로딩 텍스트 적용 후 AI 호출)
+        const loadingText = 'AI 전문가가 수집된 데이터를 바탕으로 인사이트를 분석하고 있습니다...💭';
+        this.dom.reportRecommendation.textContent = loadingText;
 
         // 리포트 시트 열기
         this.dom.reportOverlay.classList.add('open');
         document.body.style.overflow = 'hidden';
+
+        // AI 전문가 의견 비동기 요청 (UI 차단 방지)
+        this.aiAnalyzer.generateExpertInsight(report).then(aiInsight => {
+            // 타이핑 효과를 위한 코드 또는 즉시 반영
+            this.dom.reportRecommendation.innerHTML = aiInsight.replace(/\n/g, '<br/>');
+        }).catch(err => {
+            console.error('AI 분석 실패:', err);
+            this.dom.reportRecommendation.textContent = report.recommendation; // 실패시 기존 추천 문구 사용
+        });
     }
 
     /**
@@ -728,6 +746,18 @@ class SenseTrackApp {
         this.dom.stimLog.innerHTML = '';
         this.dom.logCount.textContent = '0건';
         this.sessionManager.Reset();
+    }
+
+    /**
+     * 전문가 상담 예약 클릭 처리 (카카오 1:1 오픈채팅 연동)
+     */
+    handleBooking() {
+        // 실제 운영 시 상담사의 카카오톡 1:1 오픈채팅방 URL로 교체합니다.
+        const kakaoOpenChatUrl = 'https://open.kakao.com/o/sometoken';
+
+        if (confirm('전문가와의 1:1 카카오톡 상담 채팅방으로 이동하시겠습니까?')) {
+            window.open(kakaoOpenChatUrl, '_blank');
+        }
     }
 }
 
