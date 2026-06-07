@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SenseTrack — 프로젝트 분석 보고서</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#121a30; --panel2:#16203a; --line:#243152;
+    --ink:#e8eef9; --sub:#9fb0d0; --mut:#6c7da3;
+    --pri:#3b82f6; --pri2:#1152d4; --sage:#6b9b7d; --em:#10b981;
+    --amber:#f59e0b; --red:#ef4444; --purple:#a78bfa; --orange:#f97316;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI','Malgun Gothic',sans-serif;
+    background:radial-gradient(1200px 700px at 70% -10%,#1a2748 0%,var(--bg) 55%);color:var(--ink);
+    line-height:1.65;-webkit-font-smoothing:antialiased;padding:0 0 80px}
+  .wrap{max-width:980px;margin:0 auto;padding:0 22px}
+  header.hero{padding:54px 22px 30px;text-align:center}
+  .logo{display:inline-flex;align-items:center;gap:10px;background:rgba(59,130,246,.12);
+    border:1px solid var(--line);padding:7px 16px;border-radius:99px;font-size:13px;color:var(--sub);font-weight:600}
+  .logo .dot{width:8px;height:8px;border-radius:50%;background:var(--em);box-shadow:0 0 12px var(--em)}
+  h1{font-size:40px;margin:18px 0 6px;letter-spacing:-1px}
+  h1 b{background:linear-gradient(90deg,#60a5fa,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .tag{color:var(--sub);font-size:17px;margin:0}
+  .meta{color:var(--mut);font-size:13px;margin-top:14px}
+  .grid{display:grid;gap:16px}
+  .cards{grid-template-columns:repeat(4,1fr);margin:34px 0}
+  @media(max-width:760px){.cards{grid-template-columns:repeat(2,1fr)}}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);
+    border-radius:16px;padding:18px}
+  .stat .n{font-size:30px;font-weight:800;letter-spacing:-1px}
+  .stat .l{font-size:12.5px;color:var(--sub);margin-top:2px}
+  section{margin:40px 0}
+  h2{font-size:23px;margin:0 0 4px;display:flex;align-items:center;gap:10px}
+  h2 .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:16px;
+    background:rgba(59,130,246,.15);border:1px solid var(--line)}
+  .h2sub{color:var(--mut);font-size:14px;margin:0 0 18px 40px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px}
+  .flow{display:flex;flex-direction:column;gap:0}
+  .step{display:flex;gap:16px;padding:14px 0;border-bottom:1px dashed var(--line)}
+  .step:last-child{border-bottom:0}
+  .step .num{flex:0 0 32px;height:32px;border-radius:50%;background:var(--pri2);display:grid;place-items:center;
+    font-weight:800;font-size:14px}
+  .step .body b{display:block;font-size:15.5px}
+  .step .body span{color:var(--sub);font-size:13.5px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+  td code{background:#0e1730;border:1px solid var(--line);padding:1px 7px;border-radius:6px;font-size:12.5px;color:#9ecbff}
+  .pill{display:inline-block;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:99px}
+  .ok{background:rgba(16,185,129,.15);color:#5eead4;border:1px solid rgba(16,185,129,.3)}
+  .warn{background:rgba(245,158,11,.14);color:#fcd34d;border:1px solid rgba(245,158,11,.3)}
+  .bad{background:rgba(239,68,68,.14);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+  .info{background:rgba(59,130,246,.14);color:#93c5fd;border:1px solid rgba(59,130,246,.3)}
+  .stack{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:#0e1730;border:1px solid var(--line);padding:7px 13px;border-radius:10px;font-size:13px}
+  .chip b{color:#fff}.chip span{color:var(--mut);font-size:12px}
+  .two{grid-template-columns:1fr 1fr}@media(max-width:760px){.two{grid-template-columns:1fr}}
+  .note{display:flex;gap:12px;padding:13px 15px;border-radius:12px;margin:10px 0;font-size:14px;align-items:flex-start}
+  .note.g{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25)}
+  .note.y{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25)}
+  .note.r{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25)}
+  .note .e{font-size:18px;line-height:1.4}
+  .note b{color:#fff}
+  ul.clean{margin:8px 0 0;padding-left:20px;color:var(--sub);font-size:14px}
+  ul.clean li{margin:5px 0}
+  .verdict{background:linear-gradient(135deg,rgba(59,130,246,.12),rgba(167,139,250,.1));
+    border:1px solid var(--line);border-radius:18px;padding:26px}
+  .bar{height:9px;border-radius:99px;background:#0e1730;overflow:hidden;margin-top:7px}
+  .bar i{display:block;height:100%;border-radius:99px}
+  .scorerow{display:flex;justify-content:space-between;font-size:13.5px;margin-top:14px}
+  .scorerow:first-child{margin-top:0}
+  footer{text-align:center;color:var(--mut);font-size:12.5px;margin-top:50px}
+</style>
+</head>
+<body>
+<header class="hero">
+  <span class="logo"><span class="dot"></span> 코드베이스 전체 분석 완료</span>
+  <h1><b>SenseTrack</b> 프로젝트 분석 보고서</h1>
+  <p class="tag">웹캠·마이크로 후각/청각 자극 반응을 실시간 측정하는 다감각 분석 웹앱</p>
+  <p class="meta">분석일 2026-06-07 · 바닐라 JS + Vite · 한국어 UI · git 브랜치 main (clean)</p>
+</header>
+
+<div class="wrap">
+
+  <!-- 한눈에 보기 -->
+  <div class="grid cards">
+    <div class="card stat"><div class="n">7<span style="font-size:16px;color:var(--mut)">개</span></div><div class="l">JS 소스 모듈</div></div>
+    <div class="card stat"><div class="n" style="color:#60a5fa">~2.5K</div><div class="l">총 코드 라인 (CSS 1.27K 포함)</div></div>
+    <div class="card stat"><div class="n" style="color:var(--sage)">15</div><div class="l">자극 종류 (향 8 · 소리 7)</div></div>
+    <div class="card stat"><div class="n" style="color:var(--purple)">4</div><div class="l">실시간 분석 지표</div></div>
+  </div>
+
+  <!-- 한 줄 요약 -->
+  <section>
+    <div class="note g"><span class="e">✅</span><div><b>이 앱이 하는 일 (한 줄)</b><br>
+      사용자가 향이나 소리를 제시하고 버튼을 누르면, 카메라로 얼굴 움직임·표정 변화를, 마이크로 소리·발성을 추적해
+      <b>반응 시간·호흡 안정도·고개 움직임</b>을 측정하고, 세션이 끝나면 그래프 리포트와 <b>Gemini AI 전문가 의견</b>을 만들어
+      Firebase에 저장하는 웹앱입니다.</div></div>
+  </section>
+
+  <!-- 기술 스택 -->
+  <section>
+    <h2><span class="ic">🧩</span> 기술 스택</h2>
+    <p class="h2sub">프레임워크 없는 바닐라 JS. 무거운 일은 전부 검증된 라이브러리에 위임.</p>
+    <div class="panel">
+      <div class="stack">
+        <div class="chip"><b>Vite 6</b> <span>빌드/개발 서버</span></div>
+        <div class="chip"><b>MediaPipe tasks-vision</b> <span>얼굴 478점 랜드마크</span></div>
+        <div class="chip"><b>Web Audio API</b> <span>dB·발성 감지</span></div>
+        <div class="chip"><b>Chart.js</b> <span>호흡 추이 그래프</span></div>
+        <div class="chip"><b>Google Generative AI</b> <span>Gemini 전문가 의견</span></div>
+        <div class="chip"><b>Firebase</b> <span>Firestore 저장</span></div>
+        <div class="chip" style="opacity:.6"><b>zustand</b> <span>설치됨 · 미사용</span></div>
+      </div>
+      <div class="note y" style="margin-top:16px"><span class="e">⚠️</span><div>
+        <b>zustand</b>가 의존성에 있지만 코드 어디에서도 쓰이지 않습니다. 상태 관리는 <code>SenseTrackApp</code> 클래스 인스턴스 변수로 직접 처리 중 — 정리하면 번들이 가벼워집니다.</div></div>
+    </div>
+  </section>
+
+  <!-- 아키텍처 -->
+  <section>
+    <h2><span class="ic">🏗️</span> 구조 & 파일별 역할</h2>
+    <p class="h2sub">UI는 index.html에 전부 들어있고, main.js 컨트롤러가 도메인 모듈들을 콜백으로 묶습니다.</p>
+    <div class="panel" style="padding:6px 22px">
+      <table>
+        <tr><th>파일</th><th>역할</th></tr>
+        <tr><td><code>src/main.js</code></td><td><b>SenseTrackApp</b> — 중앙 컨트롤러. 카메라/오디오 제어, requestAnimationFrame 분석 루프, UI 갱신, 리포트 렌더링</td></tr>
+        <tr><td><code>mediapipe/faceTracker.js</code></td><td>MediaPipe 초기화(GPU→CPU 폴백), 고개 각도(Yaw/Pitch) 계산, 표정 블렌드쉐이프 추출, 메쉬 그리기</td></tr>
+        <tr><td><code>mediapipe/audioAnalyzer.js</code></td><td>마이크 RMS→dB 변환, 발성 시작/지속 감지, 시각화 바</td></tr>
+        <tr><td><code>session/sessionManager.js</code></td><td>타이머·자극 활성화·<b>반응 감지</b>·데이터 수집·리포트 생성의 핵심 두뇌</td></tr>
+        <tr><td><code>session/aiAnalyzer.js</code></td><td>세션 데이터로 프롬프트 작성 → Gemini 호출 → 한국어 전문가 의견</td></tr>
+        <tr><td><code>firebase.js</code></td><td>리포트를 Firestore <code>sessions</code> 컬렉션에 저장</td></tr>
+        <tr><td><code>styles/index.css</code></td><td>CSS 변수 디자인 시스템 + 전체 스타일 (~1,270줄, config 없음)</td></tr>
+        <tr><td><code>stitch_assets/</code></td><td>Google Stitch 디자인 목업(HTML·스크린샷). 참고용, 빌드 미포함</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- 동작 흐름 -->
+  <section>
+    <h2><span class="ic">🔄</span> 한 세션이 흘러가는 방식</h2>
+    <p class="h2sub">카메라 켜기 → 자극 주기 → 반응 측정 → 리포트 → AI 분석 → 저장</p>
+    <div class="panel flow">
+      <div class="step"><div class="num">1</div><div class="body"><b>측정 시작</b><span>카메라(영상)+마이크(오디오) 권한 요청, 세션 타이머 시작, 매 프레임 분석 루프 가동</span></div></div>
+      <div class="step"><div class="num">2</div><div class="body"><b>자극 적용</b><span>향(라벤더·오렌지…) 또는 소리(싱잉볼 A~G) 선택 후 버튼 클릭 → 반응 대기 모드 진입</span></div></div>
+      <div class="step"><div class="num">3</div><div class="body"><b>반응 감지</b><span>적용 직후 0.5초를 기준점(baseline)으로 잡고, 이후 고개·입·눈썹·미소 변화가 임계값을 넘으면 그 순간을 "반응 시간"으로 기록 (또는 "반응 없음" 수동 처리)</span></div></div>
+      <div class="step"><div class="num">4</div><div class="body"><b>리포트 생성</b><span>호흡 안정도 추이 그래프(Chart.js), 자극별 반응률 카드, 타임라인 자동 생성</span></div></div>
+      <div class="step"><div class="num">5</div><div class="body"><b>AI 전문가 의견</b><span>Gemini가 세션 데이터를 읽고 따뜻한 톤의 한국어 인사이트 3~4문장 작성 (비동기, UI 안 막힘)</span></div></div>
+      <div class="step"><div class="num">6</div><div class="body"><b>저장 & 상담 연결</b><span>리포트를 Firebase에 저장, 카카오 오픈채팅으로 전문가 1:1 상담 연결</span></div></div>
+    </div>
+  </section>
+
+  <!-- 무엇을 측정하나 -->
+  <section>
+    <h2><span class="ic">📊</span> 측정하는 4가지 지표</h2>
+    <p class="h2sub">전용 의료 센서가 아니라, 카메라·마이크 신호에서 추정하는 휴리스틱 값입니다.</p>
+    <div class="grid two">
+      <div class="panel"><b>🫁 호흡 안정도</b><p style="color:var(--sub);font-size:13.5px;margin:6px 0 0">입 움직임(jawOpen)과 눈 깜빡임 패턴으로 <b>추정</b>한 0~100점. 입을 적게 움직이고 깜빡임이 일정할수록 높음.</p></div>
+      <div class="panel"><b>⏱️ 반응 시간</b><p style="color:var(--sub);font-size:13.5px;margin:6px 0 0">자극 제시 후 얼굴/표정이 유의미하게 바뀌기까지 걸린 초. 평균 대비 빠름/느림도 표시.</p></div>
+      <div class="panel"><b>🔄 고개 움직임</b><p style="color:var(--sub);font-size:13.5px;margin:6px 0 0">랜드마크 거리 비율로 Yaw/Pitch 각도 근사 → 정면/좌·우/상·하 방향 + 각도. EMA로 떨림 보정.</p></div>
+      <div class="panel"><b>🎤 발성 지속 시간</b><p style="color:var(--sub);font-size:13.5px;margin:6px 0 0">마이크 RMS가 임계값(0.05)을 넘는 동안을 "발성"으로 보고 지속/최대 시간 측정.</p></div>
+    </div>
+  </section>
+
+  <!-- 강점 / 개선점 -->
+  <section>
+    <h2><span class="ic">🩺</span> 코드 상태 진단</h2>
+    <p class="h2sub">잘 만든 부분과, 손보면 좋은 부분.</p>
+    <div class="grid two">
+      <div class="panel">
+        <b style="color:#5eead4">잘 된 점</b>
+        <ul class="clean">
+          <li>모듈 책임 분리가 깔끔 — 비전/오디오/세션/AI/DB가 각자 파일, 콜백으로 느슨 결합</li>
+          <li>MediaPipe <b>GPU 실패 시 CPU 폴백</b> 등 방어 로직</li>
+          <li>노이즈/떨림에 <b>EMA 스무딩</b> 적용 (오디오·고개)</li>
+          <li>비밀키를 <code>.env</code>(gitignore) + <code>import.meta.env</code>로 안전 처리</li>
+          <li>AI 호출이 <b>비동기</b>라 리포트 표시가 막히지 않음, 실패 시 정적 문구로 폴백</li>
+          <li>반응 감지를 절대값이 아닌 <b>baseline 대비 변화량</b>으로 판정 (오작동↓)</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <b style="color:#fcd34d">개선하면 좋은 점</b>
+        <ul class="clean">
+          <li>자극 한글 이름 매핑(<code>titleMap</code>/<code>nameMap</code>)이 <b>4곳에 중복</b> → 상수 1곳으로</li>
+          <li>미사용 <b>zustand</b> 의존성 제거</li>
+          <li><code>endSession()</code>에서 <code>faceTracker.destroy()</code> 미호출 (오디오만 정리)</li>
+          <li><code>.env.example</code>에 <b>VITE_GEMINI_API_KEY 누락</b> — 추가 필요</li>
+          <li>테스트·린터·포매터 미설정</li>
+          <li>"호흡/반응"은 추정 휴리스틱 — 의료적 해석 주의 (앱 내 면책 문구는 있음 ✅)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 확인 필요 -->
+  <section>
+    <h2><span class="ic">🔎</span> 꼭 확인할 항목</h2>
+    <div class="panel" style="padding:8px 22px">
+      <table>
+        <tr><th>항목</th><th>현재 값</th><th>상태</th></tr>
+        <tr><td>Gemini 모델 ID</td><td><code>gemini-3.1-pro-preview</code> (aiAnalyzer.js)</td><td><span class="pill warn">모델명 실재 여부 확인</span></td></tr>
+        <tr><td>카카오 상담 URL</td><td><code>open.kakao.com/o/sometoken</code> (플레이스홀더)</td><td><span class="pill bad">실주소로 교체 필요</span></td></tr>
+        <tr><td>VITE_GEMINI_API_KEY</td><td>코드에서 사용 / .env.example엔 없음</td><td><span class="pill warn">예시 파일 보완</span></td></tr>
+        <tr><td>MediaPipe WASM/모델</td><td>CDN <code>@latest</code>에서 로드</td><td><span class="pill info">런타임 네트워크 의존</span></td></tr>
+        <tr><td>배포</td><td>Vercel · projectName <code>sense-track</code></td><td><span class="pill ok">설정됨</span></td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- 종합 -->
+  <section>
+    <h2><span class="ic">⭐</span> 종합 평가</h2>
+    <div class="verdict">
+      <p style="margin:0 0 18px;font-size:15.5px;color:var(--sub)">
+        <b style="color:#fff">잘 구조화된 MVP 단계의 데모 앱</b>입니다. 실시간 비전+오디오 파이프라인과 AI 리포트까지 핵심 흐름이 완성되어 동작하며,
+        코드 분리와 방어 로직 수준이 좋습니다. 다만 측정값이 <b>추정 휴리스틱</b>이라는 점, 일부 <b>플레이스홀더(상담 URL·모델명)</b>와
+        <b>중복 코드 정리</b>가 제품화 전 과제입니다.
+      </p>
+      <div class="scorerow"><span>아키텍처 / 모듈 분리</span><b style="color:#5eead4">우수</b></div>
+      <div class="bar"><i style="width:86%;background:linear-gradient(90deg,#10b981,#34d399)"></i></div>
+      <div class="scorerow"><span>기능 완성도 (핵심 흐름)</span><b style="color:#93c5fd">양호</b></div>
+      <div class="bar"><i style="width:78%;background:linear-gradient(90deg,#1152d4,#60a5fa)"></i></div>
+      <div class="scorerow"><span>코드 정리도 (중복/미사용)</span><b style="color:#fcd34d">보통</b></div>
+      <div class="bar"><i style="width:62%;background:linear-gradient(90deg,#f59e0b,#fcd34d)"></i></div>
+      <div class="scorerow"><span>측정 신뢰도 (휴리스틱 기반)</span><b style="color:#fcd34d">주의</b></div>
+      <div class="bar"><i style="width:55%;background:linear-gradient(90deg,#f97316,#fcd34d)"></i></div>
+      <div class="scorerow"><span>제품화 준비도 (테스트·플레이스홀더)</span><b style="color:#fca5a5">초기</b></div>
+      <div class="bar"><i style="width:45%;background:linear-gradient(90deg,#ef4444,#f97316)"></i></div>
+    </div>
+  </section>
+
+  <footer>
+    SenseTrack 코드베이스 자동 분석 · 함께 생성된 <code style="background:#0e1730;padding:2px 7px;border-radius:6px;color:#9ecbff">CLAUDE.md</code>에 개발 가이드 정리됨 · Generated with Claude Code
+  </footer>
+</div>
+</body>
+</html>

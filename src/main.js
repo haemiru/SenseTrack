@@ -11,7 +11,7 @@ import { FaceTracker } from './mediapipe/faceTracker.js';
 import { AudioAnalyzer } from './mediapipe/audioAnalyzer.js';
 import { SessionManager } from './session/sessionManager.js';
 import Chart from 'chart.js/auto';
-import { saveSessionReport } from './firebase.js';
+import { saveSessionReport } from './supabase.js';
 import { AIAnalyzer } from './session/aiAnalyzer.js';
 
 class SenseTrackApp {
@@ -159,7 +159,7 @@ class SenseTrackApp {
             btn.innerText = 'DB에 저장 중...';
             btn.disabled = true;
 
-            // Firebase에 데이터 저장
+            // Supabase에 데이터 저장
             if (this.currentReportData) {
                 await saveSessionReport(this.currentReportData);
             }
