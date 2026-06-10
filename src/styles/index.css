@@ -932,6 +932,19 @@ button {
   transform: scale(0.98);
 }
 
+/* 저장 결과 피드백 */
+.btn--success {
+  background: var(--status-green, #22c55e) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3) !important;
+}
+
+.btn--error {
+  background: #ef4444 !important;
+  color: #fff !important;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3) !important;
+}
+
 /* --- Report Overlay (Bottom Sheet) --- */
 .report-overlay {
   position: fixed;

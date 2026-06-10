@@ -166,20 +166,30 @@ class SenseTrackApp {
             btn.innerText = 'DB에 저장 중...';
             btn.disabled = true;
 
-            // Supabase에 데이터 저장
-            if (this.currentReportData) {
-                await saveSessionReport(this.currentReportData);
-            }
+            // Supabase에 데이터 저장 — 실제 성공 여부를 반환값으로 확인
+            const ok = this.currentReportData
+                ? await saveSessionReport(this.currentReportData)
+                : false;
 
-            btn.innerText = '저장 완료!';
-            btn.classList.add('btn--success');
-
-            setTimeout(() => {
-                this.closeReport();
-                btn.innerText = originalText;
-                btn.classList.remove('btn--success');
+            if (ok) {
+                btn.innerText = '저장 완료!';
+                btn.classList.add('btn--success');
+                setTimeout(() => {
+                    this.closeReport();
+                    btn.innerText = originalText;
+                    btn.classList.remove('btn--success');
+                    btn.disabled = false;
+                }, 1000);
+            } else {
+                // 저장 실패 시 사실대로 표시 (콘솔에 상세 오류 출력됨)
+                btn.innerText = '저장 실패 — 다시 시도';
+                btn.classList.add('btn--error');
                 btn.disabled = false;
-            }, 1000);
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.classList.remove('btn--error');
+                }, 2500);
+            }
         });
         this.dom.reportOverlay.addEventListener('click', (e) => {
             if (e.target === this.dom.reportOverlay) this.closeReport();
