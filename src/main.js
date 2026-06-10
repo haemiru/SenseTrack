@@ -613,12 +613,12 @@ class SenseTrackApp {
         if (prev && typeof prev.breathing === 'number' && prev.breathing > 0) {
             report.breathingChange = Math.round(((report.breathing - prev.breathing) / prev.breathing) * 100);
             report.comparisonBasis = 'previous';
-            report.comparisonLabel = '이전 세션 대비';
+            report.comparisonLabel = '지난 측정 대비';
             report.previousBreathing = prev.breathing;
         } else {
-            // 이전 기록 없음 → '세션 내 변화'(초반 vs 후반) 유지
+            // 이전 기록 없음 → '측정 중 변화'(초반 vs 후반) 유지
             report.comparisonBasis = 'session';
-            report.comparisonLabel = '세션 내 변화';
+            report.comparisonLabel = '측정 중 변화';
         }
 
         // 이번 세션을 직전 기록으로 저장 → 다음 세션이 '이전 세션 대비'로 비교
@@ -644,7 +644,7 @@ class SenseTrackApp {
         const sign = change >= 0 ? '+' : '';
         this.dom.reportBreathingPct.textContent = `${sign}${change}%`;
 
-        const comparisonLabel = report.comparisonLabel || '세션 내 변화';
+        const comparisonLabel = report.comparisonLabel || '측정 중 변화';
         if (this.dom.reportChartLabel) {
             this.dom.reportChartLabel.textContent = `호흡 안정도 · ${comparisonLabel}`;
         }
@@ -767,7 +767,7 @@ class SenseTrackApp {
             chartPoints: [50, 50],
             detailStats: [],
             stimulusLogs: [],
-            recommendation: '세션이 측정되지 않았습니다. 자극을 활성화하고 반응을 수집해주세요.',
+            recommendation: '아직 측정이 진행되지 않았습니다. 자극을 활성화하고 반응을 수집해주세요.',
         };
         this.showReport(demoReport);
     }

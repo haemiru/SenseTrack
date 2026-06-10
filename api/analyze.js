@@ -12,7 +12,7 @@ import Anthropic from '@anthropic-ai/sdk';
 const MODEL = 'claude-opus-4-7';
 
 const SYSTEM_PROMPT = `당신은 아동 및 성인의 웰니스, 심리, 발달 상태를 분석하는 최고 수준의 전문가입니다.
-사용자의 SenseTrack(비전/음성 센서) 측정 세션 결과 데이터를 바탕으로 현재 상태를 분석하고,
+사용자의 SenseTrack(비전/음성 센서) 측정 결과 데이터를 바탕으로 현재 상태를 분석하고,
 실질적으로 도움이 되는 따뜻하고 친절한 조언(인사이트)을 작성합니다.
 
 작성 규칙:
@@ -37,12 +37,12 @@ function buildUserPrompt(report) {
             .join('\n')
         : '  * (측정된 자극 반응 데이터 없음)';
 
-    // 비교 기준: 이전 세션 대비 vs 세션 내 변화 (실제 계산 기준을 그대로 전달)
-    const compLabel = report.comparisonLabel || '세션 내 변화';
+    // 비교 기준: 지난 측정 대비 vs 측정 중 변화 (실제 계산 기준을 그대로 전달)
+    const compLabel = report.comparisonLabel || '측정 중 변화';
 
-    return `다음은 방금 완료된 사용자의 측정 세션 결과입니다.
+    return `다음은 방금 완료된 사용자의 측정 결과입니다.
 
-[세션 데이터]
+[측정 데이터]
 - 총 진행 시간: ${Math.round(report.duration || 0)}초
 - 평균 호흡/안정성 지수 (0~100): ${report.breathing}점 (${report.breathingStatus})
 - ${compLabel}: ${report.breathingChange}%
@@ -53,7 +53,7 @@ ${statsText}
 - 반응률(%) = 자극 제시 횟수 중 실제로 반응이 감지된 비율입니다(높을수록 그 자극에 자주 반응).
 - 평균 반응속도(초) = 자극 제시 후 반응까지 걸린 평균 시간입니다(짧을수록 민감하게 반응).
 - 반응 형태 = 웹캠으로 감지한 움직임 종류(고개 좌우/고개 끄덕임/입 벌림/눈썹 움직임/미소)입니다.
-- '${compLabel}'는 ${report.comparisonBasis === 'previous' ? '같은 사용자의 직전 세션과 비교한 값' : '이번 세션 초반 대비 후반의 변화'}입니다.
+- '${compLabel}'는 ${report.comparisonBasis === 'previous' ? '같은 사용자의 지난번 측정과 비교한 값' : '이번 측정 초반 대비 후반의 변화'}입니다.
 
 위 데이터를 바탕으로, 어떤 자극에 어떤 형태로 반응했는지까지 짚어 사용자에게 전할 전문가 인사이트를 작성해주세요.`;
 }

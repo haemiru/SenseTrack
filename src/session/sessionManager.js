@@ -372,11 +372,11 @@ export class SessionManager {
         return {
             breathingStatus,
             breathing: metrics.breathing,
-            // 기본값: 세션 내 변화 (이전 세션 기록이 있으면 main.js가 '이전 세션 대비'로 덮어씀)
+            // 기본값: 측정 중 변화 (지난 측정 기록이 있으면 main.js가 '지난 측정 대비'로 덮어씀)
             breathingChange: sessionTrendChange,
             sessionTrendChange,
             comparisonBasis: 'session',          // 'session' | 'previous'
-            comparisonLabel: '세션 내 변화',
+            comparisonLabel: '측정 중 변화',
             stimulusLogs: this.stimulusLogs,     // 타임라인용
             detailStats: detailStats,            // 감각 반응카드용
             chartPoints,
