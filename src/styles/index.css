@@ -1083,6 +1083,12 @@ button {
   color: var(--status-green);
 }
 
+/* 안정도 하락 시 빨강 계열로 표시 */
+.report-badge--down {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
 .report-badge .material-symbols-outlined {
   font-size: 15px;
 }

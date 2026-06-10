@@ -84,7 +84,9 @@ export class SessionManager {
             type: type,
             startTime: performance.now(),
             displayTime: this.elapsed,
-            reactionTime: null // null: 평가전, -1: 무반응, >0: 반응시간(초)
+            reactionTime: null, // null: 평가전, -1: 무반응, >0: 반응시간(초)
+            reactionKind: null, // 반응 종류 코드: head_yaw/head_pitch/mouth/brow/smile
+            reactionLabel: null // 반응 종류 한글: 고개 좌우/고개 끄덕임/입 벌림/눈썹/미소
         };
 
         this.activeStimulus = newStimulus;
@@ -189,11 +191,26 @@ export class SessionManager {
                 dMouth > TH.mouth || dBrow > TH.brow || dSmile > TH.smile;
 
             if (moved) {
+                // 어떤 반응이 가장 강했는지(임계 대비 비율 최대) 판별 → 반응 종류로 기록
+                const candidates = [
+                    { kind: 'head_yaw', label: '고개 좌우', r: dYaw / TH.yaw },
+                    { kind: 'head_pitch', label: '고개 끄덕임', r: dPitch / TH.pitch },
+                    { kind: 'mouth', label: '입 벌림', r: dMouth / TH.mouth },
+                    { kind: 'brow', label: '눈썹 움직임', r: dBrow / TH.brow },
+                    { kind: 'smile', label: '미소', r: dSmile / TH.smile },
+                ];
+                candidates.sort((a, b) => b.r - a.r);
+                const dominant = candidates[0];
+
                 // 반응 기록
                 this.activeStimulus.reactionTime = timeSinceStimulus;
+                this.activeStimulus.reactionKind = dominant.kind;
+                this.activeStimulus.reactionLabel = dominant.label;
                 this.reactionTimes.push({
                     category: this.activeStimulus.category,
                     time: timeSinceStimulus,
+                    kind: dominant.kind,
+                    label: dominant.label,
                 });
 
                 const completed = this.activeStimulus;
@@ -272,7 +289,9 @@ export class SessionManager {
             ? earlyBreathing.reduce((s, d) => s + d.value, 0) / earlyBreathing.length : 0;
         const lateAvg = lateBreathing.length > 0
             ? lateBreathing.reduce((s, d) => s + d.value, 0) / lateBreathing.length : 0;
-        const breathingChange = earlyAvg > 0
+        // 세션 내 변화: 세션 초반 1/3 대비 후반 1/3의 호흡 안정도 변화율
+        // (이전 '세션 간' 비교는 main.js에서 localStorage의 직전 세션과 비교해 덮어쓴다)
+        const sessionTrendChange = earlyAvg > 0
             ? Math.round(((lateAvg - earlyAvg) / earlyAvg) * 100) : 0;
 
         // 호흡 상태
@@ -292,48 +311,74 @@ export class SessionManager {
                     type: log.type,
                     count: 0,
                     reactions: 0,
-                    totalReactionTime: 0
+                    totalReactionTime: 0,
+                    kinds: {} // 반응 종류별 횟수 (예: { '고개 좌우': 2, '미소': 1 })
                 };
             }
             stimulusStats[key].count++;
             if (log.reactionTime > 0) {
                 stimulusStats[key].reactions++;
                 stimulusStats[key].totalReactionTime += log.reactionTime;
+                const lbl = log.reactionLabel || '기타';
+                stimulusStats[key].kinds[lbl] = (stimulusStats[key].kinds[lbl] || 0) + 1;
             }
         });
 
-        // 통계를 배열로 변환하고 반응률 계산
+        // 통계를 배열로 변환
         const detailStats = Object.values(stimulusStats).map(stat => {
             const avgTime = stat.reactions > 0 ? (stat.totalReactionTime / stat.reactions) : 0;
-            // 0.5초 이내 = 100%, 4.5초 이상 = 0% 반응점수 알고리즘
-            const score = avgTime > 0 ? Math.round(Math.min(100, Math.max(0, (1 - (avgTime - 0.5) / 4.0) * 100))) : 0;
+
+            // 반응률 = 제시 횟수 중 실제 반응한 비율 (직관적: "N회 중 M회 반응")
+            const responseRate = stat.count > 0
+                ? Math.round((stat.reactions / stat.count) * 100) : 0;
+
+            // 반응 속도 라벨 (반응이 있었을 때만)
+            let speedLabel = null;
+            if (stat.reactions > 0) {
+                if (avgTime <= 1.0) speedLabel = '빠름';
+                else if (avgTime <= 2.5) speedLabel = '보통';
+                else speedLabel = '느림';
+            }
+
+            // 반응 종류 요약 (많은 순)
+            const reactionKinds = Object.entries(stat.kinds)
+                .sort((a, b) => b[1] - a[1])
+                .map(([kind, count]) => ({ kind, count }));
+
             return {
                 category: stat.category,
                 type: stat.type,
-                responseRate: score,
-                avgReactionTime: avgTime,
+                responseRate,                         // 반응 비율(%)
+                avgReactionTime: avgTime,             // 평균 반응속도(초)
+                speedLabel,                           // 빠름/보통/느림
                 reactionCount: stat.reactions,
-                totalCount: stat.count
+                totalCount: stat.count,
+                reactionKinds,                        // [{kind:'고개 좌우', count:2}, ...]
+                topKind: reactionKinds.length ? reactionKinds[0].kind : null,
             };
         });
 
         // 차트 데이터 포인트 (70개)
         const chartPoints = this.sampleBreathingData(70);
 
-        // 전문가 의견
+        // 전문가 의견 (AI 호출 실패 시 폴백 — 사실과 맞지 않는 '지난 세션' 단정 표현 제거)
         let recommendation = '';
         if (metrics.breathing >= 70) {
-            recommendation = `현재 호흡 주기가 지난 세션보다 ${Math.abs(breathingChange)}% 더 일정해졌습니다. 꾸준한 훈련을 통해 안정도가 개선되고 있습니다.`;
+            recommendation = `측정된 호흡 안정도가 양호한 편입니다. 꾸준한 훈련으로 현재의 안정도를 유지·개선해 보세요.`;
         } else {
             recommendation = `호흡 패턴에 불규칙한 구간이 감지되었습니다. 더 정밀한 분석을 위해 전문가 화상 상담이나 센터 방문을 권장합니다.`;
         }
 
         return {
             breathingStatus,
-            breathingChange: breathingChange > 0 ? `+${breathingChange}` : breathingChange,
             breathing: metrics.breathing,
-            stimulusLogs: this.stimulusLogs, // 타임라인용
-            detailStats: detailStats,        // 감각 반응카드용
+            // 기본값: 세션 내 변화 (이전 세션 기록이 있으면 main.js가 '이전 세션 대비'로 덮어씀)
+            breathingChange: sessionTrendChange,
+            sessionTrendChange,
+            comparisonBasis: 'session',          // 'session' | 'previous'
+            comparisonLabel: '세션 내 변화',
+            stimulusLogs: this.stimulusLogs,     // 타임라인용
+            detailStats: detailStats,            // 감각 반응카드용
             chartPoints,
             recommendation,
             duration: this.elapsed,

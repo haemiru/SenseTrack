@@ -123,6 +123,8 @@ class SenseTrackApp {
             reportSave: document.getElementById('reportSave'),
             reportBreathingStatus: document.getElementById('reportBreathingStatus'),
             reportBreathingPct: document.getElementById('reportBreathingPct'),
+            reportBreathingChange: document.getElementById('reportBreathingChange'),
+            reportChartLabel: document.querySelector('.report-chart-label'),
             reportChartCanvas: document.getElementById('reportChartCanvas'),
             reportResponseCards: document.getElementById('reportResponseCards'),
             reportTimeline: document.getElementById('reportTimeline'),
@@ -491,7 +493,10 @@ class SenseTrackApp {
 
         let reactionHtml = '';
         if (logItem.reactionTime > 0) {
-            reactionHtml = `<span class="log-item-rt">${logItem.reactionTime.toFixed(1)}초</span>`;
+            const kind = logItem.reactionLabel
+                ? `<small style="display:block;color:#94a3b8;font-weight:normal;font-size:11px;">${logItem.reactionLabel}</small>`
+                : '';
+            reactionHtml = `<span class="log-item-rt">${logItem.reactionTime.toFixed(1)}초${kind}</span>`;
         } else {
             reactionHtml = `<span class="log-item-rt no-reaction">무반응</span>`;
         }
@@ -590,7 +595,39 @@ class SenseTrackApp {
         this.audioAnalyzer.destroy();
 
         const report = this.sessionManager.end();
+        this.applyPreviousSessionComparison(report);
         await this.showReport(report);
+    }
+
+    /**
+     * 이전 세션(같은 기기/브라우저의 직전 측정) 대비 호흡 안정도 변화를 계산.
+     * Supabase는 익명 INSERT 전용(읽기 차단) + 사용자 식별이 없어 공유 DB에서
+     * '내 직전 세션'을 특정할 수 없으므로 localStorage를 기준으로 비교한다.
+     * 이전 기록이 없으면 generateReport의 '세션 내 변화'를 그대로 사용한다.
+     */
+    applyPreviousSessionComparison(report) {
+        const KEY = 'sensetrack_last_session';
+        let prev = null;
+        try { prev = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { prev = null; }
+
+        if (prev && typeof prev.breathing === 'number' && prev.breathing > 0) {
+            report.breathingChange = Math.round(((report.breathing - prev.breathing) / prev.breathing) * 100);
+            report.comparisonBasis = 'previous';
+            report.comparisonLabel = '이전 세션 대비';
+            report.previousBreathing = prev.breathing;
+        } else {
+            // 이전 기록 없음 → '세션 내 변화'(초반 vs 후반) 유지
+            report.comparisonBasis = 'session';
+            report.comparisonLabel = '세션 내 변화';
+        }
+
+        // 이번 세션을 직전 기록으로 저장 → 다음 세션이 '이전 세션 대비'로 비교
+        try {
+            localStorage.setItem(KEY, JSON.stringify({
+                breathing: report.breathing,
+                breathingStatus: report.breathingStatus,
+            }));
+        } catch { /* localStorage 미지원 환경 무시 */ }
     }
 
     /**
@@ -602,9 +639,20 @@ class SenseTrackApp {
         // 호흡 상태
         this.dom.reportBreathingStatus.textContent = report.breathingStatus;
 
-        // 변화율
-        const sign = report.breathingChange >= 0 ? '+' : '';
-        this.dom.reportBreathingPct.textContent = `${sign}${report.breathingChange}%`;
+        // 변화율 + 비교 기준 (이전 세션 대비 / 세션 내 변화)
+        const change = Number(report.breathingChange) || 0;
+        const sign = change >= 0 ? '+' : '';
+        this.dom.reportBreathingPct.textContent = `${sign}${change}%`;
+
+        const comparisonLabel = report.comparisonLabel || '세션 내 변화';
+        if (this.dom.reportChartLabel) {
+            this.dom.reportChartLabel.textContent = `호흡 안정도 · ${comparisonLabel}`;
+        }
+        if (this.dom.reportBreathingChange) {
+            const badgeIcon = this.dom.reportBreathingChange.querySelector('.material-symbols-outlined');
+            if (badgeIcon) badgeIcon.textContent = change >= 0 ? 'trending_up' : 'trending_down';
+            this.dom.reportBreathingChange.classList.toggle('report-badge--down', change < 0);
+        }
 
         // 차트 그리기
         this.drawReportChart(report.chartPoints);
@@ -627,6 +675,20 @@ class SenseTrackApp {
                 const displayName = nameMap[stat.type] || stat.type;
                 const titleStr = `${isOlf ? '후각' : '청각'} 자극 (${displayName})`;
 
+                // 반응 속도 + 반응 종류 요약
+                let subText;
+                if (stat.reactionCount > 0) {
+                    const spd = stat.avgReactionTime
+                        ? `평균 ${stat.avgReactionTime.toFixed(1)}초${stat.speedLabel ? ` (${stat.speedLabel})` : ''}`
+                        : '';
+                    const kindStr = (stat.reactionKinds && stat.reactionKinds.length)
+                        ? ` · 주 반응: ${stat.reactionKinds.map(k => k.count > 1 ? `${k.kind} ${k.count}회` : k.kind).join(', ')}`
+                        : '';
+                    subText = `${spd}${kindStr}`;
+                } else {
+                    subText = '반응 없음';
+                }
+
                 const cardHtml = `
                   <div class="response-card">
                     <div class="response-icon response-icon--${colorClass}">
@@ -640,6 +702,7 @@ class SenseTrackApp {
                       <div class="response-bar">
                         <div class="response-bar-fill response-bar-fill--${colorClass}" style="width:${stat.responseRate}%"></div>
                       </div>
+                      <div class="response-sub" style="margin-top:6px;font-size:12px;color:var(--text-tertiary);">${subText}</div>
                     </div>
                   </div>
                 `;
@@ -662,7 +725,8 @@ class SenseTrackApp {
                     'singingbowl_g': '싱잉볼 G'
                 };
                 const t = titleMap[log.type] || log.type;
-                const r = log.reactionTime > 0 ? `${log.reactionTime.toFixed(1)}초 후 반응` : '무반응';
+                const kindStr = (log.reactionTime > 0 && log.reactionLabel) ? ` · ${log.reactionLabel}` : '';
+                const r = log.reactionTime > 0 ? `${log.reactionTime.toFixed(1)}초 후 반응${kindStr}` : '무반응';
                 const c = log.reactionTime > 0 ? 'color:var(--emerald-600)' : 'color:var(--text-tertiary)';
                 return `<div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-light); font-size:13px;">
                            <span><strong>${t}</strong> (${log.category === 'olfactory' ? '후각' : '청각'})</span>

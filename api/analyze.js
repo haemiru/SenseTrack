@@ -25,20 +25,37 @@ function buildUserPrompt(report) {
     const detailStats = Array.isArray(report.detailStats) ? report.detailStats : [];
     const statsText = detailStats.length > 0
         ? detailStats
-            .map(s => `  * [${s.category} / ${s.type}] 반응률 ${s.responseRate}점, 평균 반응속도 ${Number(s.avgReactionTime || 0).toFixed(2)}초`)
+            .map(s => {
+                const kinds = Array.isArray(s.reactionKinds) && s.reactionKinds.length > 0
+                    ? s.reactionKinds.map(k => `${k.kind}${k.count > 1 ? `(${k.count}회)` : ''}`).join(', ')
+                    : '없음';
+                const speed = s.reactionCount > 0
+                    ? `평균 반응속도 ${Number(s.avgReactionTime || 0).toFixed(2)}초${s.speedLabel ? `(${s.speedLabel})` : ''}`
+                    : '반응 없음';
+                return `  * [${s.category} / ${s.type}] ${s.totalCount}회 제시 중 ${s.reactionCount}회 반응(반응률 ${s.responseRate}%), ${speed}, 주요 반응 형태: ${kinds}`;
+            })
             .join('\n')
         : '  * (측정된 자극 반응 데이터 없음)';
+
+    // 비교 기준: 이전 세션 대비 vs 세션 내 변화 (실제 계산 기준을 그대로 전달)
+    const compLabel = report.comparisonLabel || '세션 내 변화';
 
     return `다음은 방금 완료된 사용자의 측정 세션 결과입니다.
 
 [세션 데이터]
 - 총 진행 시간: ${Math.round(report.duration || 0)}초
 - 평균 호흡/안정성 지수 (0~100): ${report.breathing}점 (${report.breathingStatus})
-- 이전 대비 안정성 변화: ${report.breathingChange}%
+- ${compLabel}: ${report.breathingChange}%
 - 자극별 반응 통계:
 ${statsText}
 
-위 데이터를 바탕으로 사용자에게 전할 전문가 인사이트를 작성해주세요.`;
+[지표 설명]
+- 반응률(%) = 자극 제시 횟수 중 실제로 반응이 감지된 비율입니다(높을수록 그 자극에 자주 반응).
+- 평균 반응속도(초) = 자극 제시 후 반응까지 걸린 평균 시간입니다(짧을수록 민감하게 반응).
+- 반응 형태 = 웹캠으로 감지한 움직임 종류(고개 좌우/고개 끄덕임/입 벌림/눈썹 움직임/미소)입니다.
+- '${compLabel}'는 ${report.comparisonBasis === 'previous' ? '같은 사용자의 직전 세션과 비교한 값' : '이번 세션 초반 대비 후반의 변화'}입니다.
+
+위 데이터를 바탕으로, 어떤 자극에 어떤 형태로 반응했는지까지 짚어 사용자에게 전할 전문가 인사이트를 작성해주세요.`;
 }
 
 export default async function handler(req, res) {
