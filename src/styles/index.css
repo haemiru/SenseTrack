@@ -367,6 +367,22 @@ button {
   transform: scale(1.05);
 }
 
+/* 자극 적용을 카메라 없이 눌렀을 때 카메라 버튼을 강조 */
+.camera-toggle.attention {
+  animation: cameraAttention 0.5s ease-in-out 3;
+}
+
+@keyframes cameraAttention {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.6);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 12px rgba(245, 158, 11, 0);
+  }
+}
+
 .camera-toggle:active {
   transform: scale(0.95);
 }
@@ -556,6 +572,25 @@ button {
 
 .stim-apply-btn:active {
   transform: translateY(0);
+}
+
+/* 카메라 미시작 시 잠금 상태 — 클릭은 가능하되(안내 표시) 비활성처럼 보이게 */
+.stim-apply-btn.locked {
+  opacity: 0.55;
+  border-color: var(--border-light);
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+
+.stim-apply-btn.locked:hover {
+  background: var(--bg-card);
+  transform: none;
+  box-shadow: none;
+}
+
+.stim-apply-btn.locked .stim-apply-hint {
+  color: var(--amber-500);
+  font-weight: 700;
 }
 
 .stim-apply-btn.tracking {

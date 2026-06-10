@@ -55,6 +55,9 @@ class SenseTrackApp {
         } else {
             this.updateStatus('모델 로딩 실패', false);
         }
+
+        // 시작 시 카메라가 꺼져 있으므로 '자극 적용' 버튼을 잠금 상태로 표시
+        this.syncStimButtonState();
     }
 
     /**
@@ -92,6 +95,7 @@ class SenseTrackApp {
             stimApplyBtn: document.getElementById('stimApplyBtn'),
             stimApplyIcon: document.getElementById('stimApplyIcon'),
             stimApplyText: document.getElementById('stimApplyText'),
+            stimApplyHint: document.getElementById('stimApplyHint'),
             reactionTracker: document.getElementById('reactionTracker'),
             reactionTrackerTime: document.getElementById('reactionTrackerTime'),
             reactionSkipBtn: document.getElementById('reactionSkipBtn'),
@@ -238,6 +242,9 @@ class SenseTrackApp {
             this.dom.liveBadge.style.display = 'inline-flex';
             this.dom.faceMeshOverlay.classList.add('active');
 
+            // 카메라가 켜졌으니 '자극 적용' 버튼 잠금 해제
+            this.syncStimButtonState();
+
             // 오디오 분석기 시작
             await this.audioAnalyzer.initialize();
 
@@ -278,6 +285,9 @@ class SenseTrackApp {
         // 캔버스 클리어
         const ctx = this.dom.canvas.getContext('2d');
         ctx.clearRect(0, 0, this.dom.canvas.width, this.dom.canvas.height);
+
+        // 카메라가 꺼졌으니 '자극 적용' 버튼 다시 잠금
+        this.syncStimButtonState();
 
         this.updateStatus('일시 정지', false);
     }
@@ -341,11 +351,30 @@ class SenseTrackApp {
     }
 
     /**
+     * 카메라 활성 여부에 따라 '자극 적용' 버튼의 잠금/안내 상태를 동기화.
+     * 추적 중(tracking)일 때는 건드리지 않는다.
+     */
+    syncStimButtonState() {
+        if (this.sessionManager.awaitingReaction) return;
+
+        if (this.isCameraActive) {
+            this.dom.stimApplyBtn.classList.remove('locked');
+            this.dom.stimApplyHint.textContent = '자극을 줄 때 눌러주세요';
+        } else {
+            this.dom.stimApplyBtn.classList.add('locked');
+            this.dom.stimApplyHint.textContent = '카메라를 먼저 시작하세요';
+        }
+    }
+
+    /**
      * 자극 적용 시작
      */
     applyStimulus() {
         if (!this.isCameraActive) {
-            alert('카메라를 먼저 시작해주세요.');
+            // 잠금 상태이므로 카메라 시작을 안내하고, 카메라 버튼을 시각적으로 강조
+            this.dom.stimApplyHint.textContent = '⚠ 카메라를 먼저 시작하세요 (영상 속 카메라 버튼)';
+            this.dom.cameraToggle.classList.add('attention');
+            setTimeout(() => this.dom.cameraToggle.classList.remove('attention'), 1600);
             return;
         }
 
@@ -406,6 +435,9 @@ class SenseTrackApp {
         this.dom.stimApplyText.textContent = '자극 적용';
         this.dom.stimApplyBtn.style.pointerEvents = 'auto';
         this.dom.reactionTracker.style.display = 'none';
+
+        // 카메라 상태에 맞춰 버튼/안내 문구 복구
+        this.syncStimButtonState();
 
         // 로그 추가
         this.appendLogEntry(logItem);
