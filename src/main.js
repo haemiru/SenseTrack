@@ -11,7 +11,14 @@ import { FaceTracker } from './mediapipe/faceTracker.js';
 import { AudioAnalyzer } from './mediapipe/audioAnalyzer.js';
 import { SessionManager } from './session/sessionManager.js';
 import Chart from 'chart.js/auto';
-import { saveSessionReport } from './supabase.js';
+import {
+    saveSessionReport,
+    getCurrentUser,
+    onAuthChange,
+    signInWithProvider,
+    signInViaBookshop,
+    signOut,
+} from './supabase.js';
 import { AIAnalyzer } from './session/aiAnalyzer.js';
 
 class SenseTrackApp {
@@ -31,6 +38,10 @@ class SenseTrackApp {
         this.chartInstance = null;
         this.currentReportData = null;
 
+        // 인증
+        this.currentUser = null;
+        this.PENDING_KEY = 'sensetrack_pending_report'; // OAuth 리다이렉트 중 임시 보관
+
         // DOM 참조
         this.dom = {};
 
@@ -44,6 +55,7 @@ class SenseTrackApp {
     async init() {
         this.cacheDom();
         this.bindEvents();
+        this.initAuth();
         this.updateStatus('준비 중', false);
 
         // MediaPipe 사전 로드
@@ -82,6 +94,19 @@ class SenseTrackApp {
             // Status
             statusBadge: document.getElementById('statusBadge'),
             statusText: document.querySelector('.status-text'),
+
+            // Auth
+            authChip: document.getElementById('authChip'),
+            authChipIcon: document.getElementById('authChipIcon'),
+            authChipText: document.getElementById('authChipText'),
+            loginOverlay: document.getElementById('loginOverlay'),
+            loginClose: document.getElementById('loginClose'),
+            loginGoogle: document.getElementById('loginGoogle'),
+            loginKakao: document.getElementById('loginKakao'),
+            loginNaver: document.getElementById('loginNaver'),
+            loginSkip: document.getElementById('loginSkip'),
+            saveNotice: document.getElementById('saveNotice'),
+            saveNoticeText: document.getElementById('saveNoticeText'),
 
             // Timer
             timerSegments: document.querySelectorAll('.timer-segment'),
@@ -160,37 +185,7 @@ class SenseTrackApp {
 
         // 리포트 닫기 및 저장
         this.dom.reportClose.addEventListener('click', () => this.closeReport());
-        this.dom.reportSave.addEventListener('click', async () => {
-            const btn = this.dom.reportSave;
-            const originalText = btn.innerText;
-            btn.innerText = 'DB에 저장 중...';
-            btn.disabled = true;
-
-            // Supabase에 데이터 저장 — 실제 성공 여부를 반환값으로 확인
-            const ok = this.currentReportData
-                ? await saveSessionReport(this.currentReportData)
-                : false;
-
-            if (ok) {
-                btn.innerText = '저장 완료!';
-                btn.classList.add('btn--success');
-                setTimeout(() => {
-                    this.closeReport();
-                    btn.innerText = originalText;
-                    btn.classList.remove('btn--success');
-                    btn.disabled = false;
-                }, 1000);
-            } else {
-                // 저장 실패 시 사실대로 표시 (콘솔에 상세 오류 출력됨)
-                btn.innerText = '저장 실패 — 다시 시도';
-                btn.classList.add('btn--error');
-                btn.disabled = false;
-                setTimeout(() => {
-                    btn.innerText = originalText;
-                    btn.classList.remove('btn--error');
-                }, 2500);
-            }
-        });
+        this.dom.reportSave.addEventListener('click', () => this.handleSaveReport());
         this.dom.reportOverlay.addEventListener('click', (e) => {
             if (e.target === this.dom.reportOverlay) this.closeReport();
         });
@@ -199,6 +194,17 @@ class SenseTrackApp {
         if (this.dom.bookingBtn) {
             this.dom.bookingBtn.addEventListener('click', () => this.handleBooking());
         }
+
+        // 인증 / 로그인 모달
+        this.dom.authChip.addEventListener('click', () => this.handleAuthChip());
+        this.dom.loginClose.addEventListener('click', () => this.closeLoginModal());
+        this.dom.loginSkip.addEventListener('click', () => this.closeLoginModal());
+        this.dom.loginOverlay.addEventListener('click', (e) => {
+            if (e.target === this.dom.loginOverlay) this.closeLoginModal();
+        });
+        this.dom.loginGoogle.addEventListener('click', () => this.startLogin('google'));
+        this.dom.loginKakao.addEventListener('click', () => this.startLogin('kakao'));
+        this.dom.loginNaver.addEventListener('click', () => this.startLogin('naver'));
 
         // 세션 관리자 콜백
         this.sessionManager.onTimerUpdate((mins, secs) => {
@@ -880,6 +886,180 @@ class SenseTrackApp {
 
         if (confirm('전문가와의 1:1 카카오톡 상담 채팅방으로 이동하시겠습니까?')) {
             window.open(kakaoOpenChatUrl, '_blank');
+        }
+    }
+
+    // ===================== 인증 / 저장 =====================
+
+    /**
+     * 인증 초기화: 현재 세션 확인 + 상태 변화 구독 + OAuth 복귀 후 임시 저장 처리
+     */
+    async initAuth() {
+        this.currentUser = await getCurrentUser();
+        this.updateAuthUI();
+
+        // 로그인 상태가 바뀌면 UI 갱신
+        onAuthChange((user) => {
+            const wasLoggedOut = !this.currentUser;
+            this.currentUser = user;
+            this.updateAuthUI();
+            // 방금 로그인했고, 리다이렉트 전에 보관해 둔 리포트가 있으면 자동 저장
+            if (wasLoggedOut && user) this.flushPendingReport();
+        });
+
+        // 새로고침/리다이렉트 복귀 시점에도 한 번 시도
+        if (this.currentUser) this.flushPendingReport();
+    }
+
+    /**
+     * 헤더 로그인 칩 + 저장 안내 문구를 로그인 상태에 맞게 갱신
+     */
+    updateAuthUI() {
+        const user = this.currentUser;
+        if (user) {
+            const label = user.email || user.user_metadata?.name || '로그인됨';
+            this.dom.authChipIcon.textContent = 'account_circle';
+            this.dom.authChipText.textContent = label.length > 14 ? label.slice(0, 13) + '…' : label;
+            this.dom.authChip.classList.add('auth-chip--in');
+        } else {
+            this.dom.authChipIcon.textContent = 'login';
+            this.dom.authChipText.textContent = '로그인';
+            this.dom.authChip.classList.remove('auth-chip--in');
+        }
+
+        // 저장 안내 문구
+        if (this.dom.saveNoticeText) {
+            this.dom.saveNoticeText.innerHTML = user
+                ? '이 기록을 보관하려면 아래 <strong>저장</strong>을 눌러주세요. 저장하지 않으면 다음에 다시 볼 수 없어요.'
+                : '<strong>로그인 후 저장</strong>하면 기록이 보관되어 다음에 다시 볼 수 있어요. 저장하지 않으면 오늘만 보입니다.';
+        }
+    }
+
+    /**
+     * 헤더 칩 클릭: 로그아웃 상태면 로그인 모달, 로그인 상태면 로그아웃 확인
+     */
+    async handleAuthChip() {
+        if (this.currentUser) {
+            if (confirm('로그아웃 하시겠습니까?')) {
+                await signOut();
+                this.currentUser = null;
+                this.updateAuthUI();
+            }
+        } else {
+            this.openLoginModal();
+        }
+    }
+
+    openLoginModal() {
+        this.dom.loginOverlay.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    closeLoginModal() {
+        this.dom.loginOverlay.classList.remove('open');
+        // 리포트가 열려있지 않을 때만 스크롤 복구
+        if (!this.dom.reportOverlay.classList.contains('open')) {
+            document.body.style.overflow = '';
+        }
+    }
+
+    /**
+     * 로그인 시작. google/kakao는 Supabase 네이티브 OAuth,
+     * naver는 Supabase 미지원이라 책방 로그인 페이지로 위임.
+     * 리다이렉트로 리포트가 사라지지 않도록 현재 리포트를 임시 보관한다.
+     */
+    async startLogin(provider) {
+        if (this.currentReportData) {
+            try {
+                sessionStorage.setItem(this.PENDING_KEY, JSON.stringify(this.currentReportData));
+            } catch { /* 무시 */ }
+        }
+
+        if (provider === 'naver') {
+            signInViaBookshop();
+            return;
+        }
+
+        const { error } = await signInWithProvider(provider);
+        if (error) {
+            console.error('[Auth] 로그인 실패:', error);
+            alert('로그인을 시작하지 못했습니다. 책방 로그인 페이지에서 로그인 후 다시 시도해주세요.');
+            signInViaBookshop();
+        }
+    }
+
+    /**
+     * OAuth 복귀 후, 로그인돼 있고 임시 보관된 리포트가 있으면 자동 저장하고 리포트를 다시 연다.
+     */
+    async flushPendingReport() {
+        let pending = null;
+        try { pending = JSON.parse(sessionStorage.getItem(this.PENDING_KEY) || 'null'); } catch { pending = null; }
+        if (!pending) return;
+        sessionStorage.removeItem(this.PENDING_KEY);
+
+        const result = await saveSessionReport(pending);
+        if (result.ok) {
+            this.currentReportData = pending;
+            // 리포트 시트를 다시 보여주고 저장 완료를 알림
+            await this.showReport(pending);
+            const btn = this.dom.reportSave;
+            btn.innerText = '저장 완료!';
+            btn.classList.add('btn--success');
+            btn.disabled = true;
+            setTimeout(() => {
+                this.closeReport();
+                btn.innerText = '분석 보고서 저장 및 닫기';
+                btn.classList.remove('btn--success');
+                btn.disabled = false;
+            }, 1200);
+        }
+    }
+
+    /**
+     * 저장 버튼 클릭: 로그인 안 됐으면 로그인 모달, 로그인 됐으면 저장
+     */
+    async handleSaveReport() {
+        if (!this.currentReportData) return;
+
+        if (!this.currentUser) {
+            // 최신 세션을 한 번 더 확인 (다른 탭에서 로그인했을 수 있음)
+            this.currentUser = await getCurrentUser();
+            this.updateAuthUI();
+        }
+
+        if (!this.currentUser) {
+            this.openLoginModal();
+            return;
+        }
+
+        const btn = this.dom.reportSave;
+        const originalText = btn.innerText;
+        btn.innerText = 'DB에 저장 중...';
+        btn.disabled = true;
+
+        const result = await saveSessionReport(this.currentReportData);
+
+        if (result.ok) {
+            btn.innerText = '저장 완료!';
+            btn.classList.add('btn--success');
+            setTimeout(() => {
+                this.closeReport();
+                btn.innerText = originalText;
+                btn.classList.remove('btn--success');
+                btn.disabled = false;
+            }, 1000);
+        } else if (result.reason === 'not_authenticated') {
+            btn.innerText = originalText;
+            btn.disabled = false;
+            this.openLoginModal();
+        } else {
+            btn.innerText = '저장 실패 — 다시 시도';
+            btn.classList.add('btn--error');
+            btn.disabled = false;
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.classList.remove('btn--error');
+            }, 2500);
         }
     }
 }
