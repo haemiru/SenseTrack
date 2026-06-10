@@ -98,6 +98,7 @@ class SenseTrackApp {
             stimApplyHint: document.getElementById('stimApplyHint'),
             reactionTracker: document.getElementById('reactionTracker'),
             reactionTrackerTime: document.getElementById('reactionTrackerTime'),
+            reactionTrackerLabel: document.querySelector('.reaction-tracker-label'),
             reactionSkipBtn: document.getElementById('reactionSkipBtn'),
             logSection: document.getElementById('logSection'),
             stimLog: document.getElementById('stimLog'),
@@ -315,6 +316,12 @@ class SenseTrackApp {
                 const audioResult = this.audioAnalyzer.getAnalysis();
                 this.sessionManager.recordAudioData(audioResult);
                 this.updateAudioUI(audioResult);
+
+                // 4. 반응 추적 중이면 프레임마다 트래커 갱신
+                //    (setInterval 타이머와 무관하게 매 프레임 시간/움직임% 반영)
+                if (this.sessionManager.awaitingReaction) {
+                    this.updateTrackingTimer();
+                }
             }
 
             this.animationFrameId = requestAnimationFrame(loop);
@@ -402,6 +409,9 @@ class SenseTrackApp {
         this.dom.stimApplyBtn.style.pointerEvents = 'none';
 
         this.dom.reactionTrackerTime.textContent = '0.0초';
+        if (this.dom.reactionTrackerLabel) {
+            this.dom.reactionTrackerLabel.textContent = '반응 추적 중... (움직임 0%)';
+        }
         this.dom.reactionTracker.style.display = 'flex';
     }
 
@@ -413,6 +423,13 @@ class SenseTrackApp {
 
         const currentTrackerTime = (performance.now() - this.sessionManager.activeStimulus.startTime) / 1000;
         this.dom.reactionTrackerTime.textContent = `${currentTrackerTime.toFixed(1)}초`;
+
+        // 실시간 '움직임 강도'(%) 표시 — 100%에 도달하면 반응으로 감지된다.
+        // 움직여도 0%에 머물면 카메라/얼굴 인식 문제, 낮게만 오르면 임계값 문제로 진단 가능.
+        if (this.dom.reactionTrackerLabel) {
+            const pct = Math.round(Math.min(1, this.sessionManager.reactionProgress || 0) * 100);
+            this.dom.reactionTrackerLabel.textContent = `반응 추적 중... (움직임 ${pct}%)`;
+        }
     }
 
     /**

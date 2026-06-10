@@ -24,6 +24,8 @@ export class SessionManager {
 
         // 반응 측정
         this.awaitingReaction = false;
+        this.baselineAnalysis = null;
+        this.reactionProgress = 0; // 추적 중 움직임 진행도(0~1+), UI 피드백용
 
         // 콜백
         this._onTimerUpdate = null;
@@ -66,6 +68,8 @@ export class SessionManager {
         this.stimulusLogs = [];
         this.activeStimulus = null;
         this.awaitingReaction = false;
+        this.baselineAnalysis = null;
+        this.reactionProgress = 0;
     }
 
     /**
@@ -87,6 +91,7 @@ export class SessionManager {
         this.stimulusLogs.push(newStimulus);
         this.awaitingReaction = true;
         this.baselineAnalysis = null; // 새 자극 적용 시 기준점 초기화
+        this.reactionProgress = 0;
 
         console.log(`[SessionManager] Stimulus activated: ${category} - ${type}`);
         return newStimulus;
@@ -103,6 +108,7 @@ export class SessionManager {
 
         this.awaitingReaction = false;
         this.activeStimulus = null;
+        this.reactionProgress = 0;
 
         return completedStimulus;
     }
@@ -139,30 +145,48 @@ export class SessionManager {
             // 쿨타임 (자극 적용 직후 0.5초간은 반응 무시 - 오작동 방지)
             const timeSinceStimulus = (performance.now() - this.activeStimulus.startTime) / 1000;
 
+            const snapshot = {
+                yaw: analysis.headPose.yaw,
+                pitch: analysis.headPose.pitch,
+                mouthOpen: analysis.mouthOpen,
+                browUp: analysis.browUp,
+                smile: analysis.smile,
+            };
+
             if (timeSinceStimulus < 0.5) {
-                // 자극 직후 0.5초 동안의 첫 측정값을 기준점(Baseline)으로 삼아, 
-                // 절대값이 아닌 '변화량'을 통해 진짜 반응을 감지하도록 설정
-                if (!this.baselineAnalysis) {
-                    this.baselineAnalysis = {
-                        yaw: analysis.headPose.yaw,
-                        pitch: analysis.headPose.pitch,
-                        mouthOpen: analysis.mouthOpen,
-                        browUp: analysis.browUp,
-                        smile: analysis.smile
-                    };
-                }
+                // 쿨타임 동안 매 프레임 기준점을 갱신 → 쿨타임 종료 직전 값이 기준점이 됨
+                // (절대값이 아닌 '변화량'으로 진짜 반응을 감지하기 위함)
+                this.baselineAnalysis = snapshot;
+                return;
+            }
+
+            // 쿨타임 중 프레임이 한 번도 없었던 경우(느린 CPU 등): 첫 프레임을 기준점으로 잡고
+            // 다음 프레임부터 비교 → baseline이 영영 null로 남아 감지가 막히는 문제 방지
+            if (!this.baselineAnalysis) {
+                this.baselineAnalysis = snapshot;
                 return;
             }
 
             const base = this.baselineAnalysis;
-            if (!base) return;
 
-            // 반응 감지 조건: 자극 적용 당시(기준점)보다 유의미하게 크게 변화했는지 비교
-            const moved = Math.abs(analysis.headPose.yaw - base.yaw) > 10 ||
-                Math.abs(analysis.headPose.pitch - base.pitch) > 10 ||
-                Math.abs(analysis.mouthOpen - base.mouthOpen) > 0.2 ||
-                Math.abs(analysis.browUp - base.browUp) > 0.25 ||
-                Math.abs(analysis.smile - base.smile) > 0.2;
+            // 변화량 계산
+            const dYaw = Math.abs(snapshot.yaw - base.yaw);
+            const dPitch = Math.abs(snapshot.pitch - base.pitch);
+            const dMouth = Math.abs(snapshot.mouthOpen - base.mouthOpen);
+            const dBrow = Math.abs(snapshot.browUp - base.browUp);
+            const dSmile = Math.abs(snapshot.smile - base.smile);
+
+            // 임계값 (느린 프레임레이트 + 스무딩을 고려해 다소 낮춤)
+            const TH = { yaw: 7, pitch: 7, mouth: 0.18, brow: 0.22, smile: 0.18 };
+
+            // 진행도(0~1+): 임계 대비 가장 큰 변화량 — 실시간 UI 피드백용
+            this.reactionProgress = Math.max(
+                dYaw / TH.yaw, dPitch / TH.pitch,
+                dMouth / TH.mouth, dBrow / TH.brow, dSmile / TH.smile
+            );
+
+            const moved = dYaw > TH.yaw || dPitch > TH.pitch ||
+                dMouth > TH.mouth || dBrow > TH.brow || dSmile > TH.smile;
 
             if (moved) {
                 // 반응 기록
@@ -175,6 +199,7 @@ export class SessionManager {
                 const completed = this.activeStimulus;
                 this.awaitingReaction = false;
                 this.activeStimulus = null;
+                this.reactionProgress = 0;
 
                 if (this._onReactionDetected) {
                     this._onReactionDetected(completed);
