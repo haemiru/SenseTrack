@@ -19,7 +19,7 @@ const TABLE = 'sensetrack_sessions';
 // 네이버 등 Supabase 네이티브로 지원하지 않는 로그인은 책방 로그인 페이지로 위임합니다.
 // (.env의 VITE_BOOKSHOP_LOGIN_URL로 덮어쓸 수 있음)
 export const BOOKSHOP_LOGIN_URL =
-    import.meta.env.VITE_BOOKSHOP_LOGIN_URL || 'https://jjangsaem.com/login';
+    import.meta.env.VITE_BOOKSHOP_LOGIN_URL || 'https://jjangsaem.com/ko/auth';
 
 /**
  * 현재 로그인 사용자 반환 (없으면 null)
