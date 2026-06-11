@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
 // Supabase 설정값은 .env 파일에서 환경변수로 불러옵니다 (.env.example 참조).
 // 기존 jjangasem-bookshop 프로젝트(auth.users 공유)를 사용하므로
@@ -6,12 +6,29 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true, // OAuth 리다이렉트 복귀 시 URL의 토큰을 자동 감지
-    },
+// 책방(jjangsaem.com)과 로그인 세션을 공유하기 위해, Supabase 세션을
+// localStorage가 아니라 '.jjangsaem.com' 범위 쿠키에 저장한다(서브도메인 SSO).
+// → 책방에서 네이버/구글/카카오로 로그인하면 센스트랙도 자동 로그인됨.
+//   (양쪽 앱이 동일한 방식 = @supabase/ssr createBrowserClient + 같은 쿠키 도메인이어야 함)
+// localhost/프리뷰 도메인에서는 도메인을 지정하지 않아 호스트 전용 쿠키로 폴백한다.
+function buildCookieOptions() {
+    const host = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    const onBookshopDomain = host === 'jjangsaem.com' || host.endsWith('.jjangsaem.com');
+
+    const base = {
+        path: '/',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 365, // 1년
+        secure: isHttps,
+    };
+    return onBookshopDomain
+        ? { ...base, domain: '.jjangsaem.com', secure: true }
+        : base;
+}
+
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+    cookieOptions: buildCookieOptions(),
 });
 
 const TABLE = 'sensetrack_sessions';
