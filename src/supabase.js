@@ -64,11 +64,23 @@ export const signInWithProvider = async (provider) => {
 };
 
 /**
- * 네이버 등 책방이 처리하는 로그인으로 이동 (현재 주소를 redirect 파라미터로 전달)
+ * 네이버 로그인 — Supabase 네이티브 미지원이라 책방의 네이버 라우트를 직접 호출한다.
+ * 책방이 로그인 후 next(=현재 센스트랙 주소)로 복귀시키고, 세션은 .jjangsaem.com
+ * 공유 쿠키로 발급되므로 복귀 시 센스트랙이 자동 로그인 상태가 된다.
+ */
+export const signInWithNaver = () => {
+    const next = encodeURIComponent(window.location.href);
+    // BOOKSHOP_LOGIN_URL = https://jjangsaem.com/ko/auth → /naver 라우트로
+    window.location.href = `${BOOKSHOP_LOGIN_URL}/naver?next=${next}`;
+};
+
+/**
+ * 책방 로그인 페이지로 이동 (구글/카카오 OAuth 시작 실패 시 폴백).
+ * 책방 OAuth 콜백은 외부 리다이렉트를 처리하지 않으므로 next를 넘기지 않는다.
+ * (로그인 후 .jjangsaem.com 공유 쿠키로 센스트랙 재방문 시 자동 로그인됨)
  */
 export const signInViaBookshop = () => {
-    const back = encodeURIComponent(window.location.href);
-    window.location.href = `${BOOKSHOP_LOGIN_URL}?redirect=${back}`;
+    window.location.href = BOOKSHOP_LOGIN_URL;
 };
 
 /**

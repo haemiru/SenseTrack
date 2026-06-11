@@ -16,6 +16,7 @@ import {
     getCurrentUser,
     onAuthChange,
     signInWithProvider,
+    signInWithNaver,
     signInViaBookshop,
     signOut,
 } from './supabase.js';
@@ -979,7 +980,8 @@ class SenseTrackApp {
         }
 
         if (provider === 'naver') {
-            signInViaBookshop();
+            // 네이버는 책방 네이버 라우트를 직접 호출 → 로그인 후 센스트랙으로 복귀
+            signInWithNaver();
             return;
         }
 
