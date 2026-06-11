@@ -917,14 +917,17 @@ class SenseTrackApp {
     updateAuthUI() {
         const user = this.currentUser;
         if (user) {
-            const label = user.email || user.user_metadata?.name || '로그인됨';
-            this.dom.authChipIcon.textContent = 'account_circle';
-            this.dom.authChipText.textContent = label.length > 14 ? label.slice(0, 13) + '…' : label;
+            // 로그인 상태: 명확하게 '로그아웃' 버튼으로 표시(계정은 hover 툴팁으로)
+            const label = user.email || user.user_metadata?.name || '';
+            this.dom.authChipIcon.textContent = 'logout';
+            this.dom.authChipText.textContent = '로그아웃';
             this.dom.authChip.classList.add('auth-chip--in');
+            this.dom.authChip.title = label ? `${label} — 로그아웃` : '로그아웃';
         } else {
             this.dom.authChipIcon.textContent = 'login';
             this.dom.authChipText.textContent = '로그인';
             this.dom.authChip.classList.remove('auth-chip--in');
+            this.dom.authChip.title = '로그인';
         }
 
         // 저장 안내 문구

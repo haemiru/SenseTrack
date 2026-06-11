@@ -1499,15 +1499,25 @@ button {
   transform: scale(0.99);
 }
 
-.login-btn-mark {
+/* 책방과 동일한 로고/문구 스타일 */
+.login-btn-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.login-btn-icon--naver {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  font-size: 13px;
-  font-weight: 800;
+  font-weight: 900;
+  font-size: 15px;
+  line-height: 1;
+  color: #fff;
+}
+
+.login-btn-label {
+  line-height: 1;
 }
 
 .login-btn--google {
@@ -1516,30 +1526,14 @@ button {
   color: #3c4043;
 }
 
-.login-btn--google .login-btn-mark {
-  background: #fff;
-  border: 1px solid #dadce0;
-  color: #4285f4;
-}
-
 .login-btn--kakao {
   background: #fee500;
   color: #191600;
 }
 
-.login-btn--kakao .login-btn-mark {
-  background: #191600;
-  color: #fee500;
-}
-
 .login-btn--naver {
   background: #03c75a;
   color: #fff;
-}
-
-.login-btn--naver .login-btn-mark {
-  background: #fff;
-  color: #03c75a;
 }
 
 .login-skip {
