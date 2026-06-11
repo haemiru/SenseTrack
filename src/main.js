@@ -881,10 +881,10 @@ class SenseTrackApp {
      * 전문가 상담 예약 클릭 처리 (카카오 1:1 오픈채팅 연동)
      */
     handleBooking() {
-        // 실제 운영 시 상담사의 카카오톡 1:1 오픈채팅방 URL로 교체합니다.
-        const kakaoOpenChatUrl = 'https://open.kakao.com/o/sometoken';
+        // 짱샘 1:1 카카오톡 오픈채팅방
+        const kakaoOpenChatUrl = 'https://open.kakao.com/o/s3YnSoni';
 
-        if (confirm('전문가와의 1:1 카카오톡 상담 채팅방으로 이동하시겠습니까?')) {
+        if (confirm('짱샘과의 1:1 카카오톡 상담 채팅방으로 이동하시겠습니까?')) {
             window.open(kakaoOpenChatUrl, '_blank');
         }
     }
