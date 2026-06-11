@@ -756,7 +756,7 @@ class SenseTrackApp {
         }
 
         // 전문가 의견 (기본 로딩 텍스트 적용 후 AI 호출)
-        const loadingText = 'AI 전문가가 수집된 데이터를 바탕으로 인사이트를 분석하고 있습니다...💭';
+        const loadingText = '짱샘이 수집된 데이터를 바탕으로 인사이트를 분석하고 있습니다...💭';
         this.dom.reportRecommendation.textContent = loadingText;
 
         // 리포트 시트 열기
