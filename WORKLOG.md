@@ -5,6 +5,41 @@
 
 ---
 
+## 2026-06-11 (이어서) — 🔥 책방 로그인 장애 핫픽스 (쿠키 도메인 전환 후유증)
+
+> SSO 배포(같은 날 위 세션) 직후 **책방(`jjangsaem.com`) 로그인이 안 되는 장애** 발생.
+> 원인 추적·수정·배포까지 완료. 작업은 전부 **책방 repo**에서 이뤄짐(센스트랙 코드 변경 없음).
+
+### 증상
+- 책방에서 로그인이 안 됨. **시크릿(인코그니토) 창에서는 정상** → "기존 상태"가 문제라는 신호.
+
+### 원인 (쿠키 도메인 마이그레이션 충돌)
+- 위 세션에서 세션 쿠키를 호스트 전용(`jjangsaem.com`) → **도메인 공유(`.jjangsaem.com`)**로 바꿈(`d53167f`).
+- 전환 **이전부터 로그인돼 있던 사용자** 브라우저에는 **같은 이름의 옛 호스트 전용 `sb-…-auth-token` 쿠키가 잔류**.
+- 브라우저가 옛/새 쿠키를 **둘 다 전송** → 서버(`@supabase/ssr`)가 옛(만료/불일치) 토큰을 읽어 세션 파싱 실패 → 로그인 깨짐.
+- 신규/시크릿 사용자는 옛 쿠키가 없어 무관 = 시크릿에선 정상이던 이유.
+
+### 해결 — 책방 repo에 옛 호스트 전용 쿠키 자동 정리
+- **신규** `src/lib/supabase/legacy-cookie-cleanup.ts` → `clearLegacyHostOnlyAuthCookies(req, res)`:
+  옛 `sb-…-auth-token` 쿠키를 **domain 없이 `Max-Age=0`**으로 만료. domain 미지정이라 **호스트 전용 옛 쿠키만** 지워지고 새 `.jjangsaem.com` 쿠키는 유지됨.
+- **핵심 함정**: `NextResponse.cookies`는 이름으로 dedup → 같은 이름 Set-Cookie를 두 번 못 보냄(새 도메인 쿠키를 덮어써 버림). 그래서 삭제용 Set-Cookie는 **`response.headers.append('set-cookie', …)`로 직접 추가**해야 한다(새 도메인 쿠키 유지 + 옛 호스트 쿠키만 삭제).
+- 적용 위치: **구글/카카오 콜백**(`auth/callback`), **네이버 콜백**(`auth/naver/callback`), **미들웨어**(인증 깨진 보호경로 진입 시).
+- **code-verifier도 포함**(`-code-verifier` 추가): 옛 host-only PKCE code-verifier가 새 도메인 쿠키와 공존하면 `exchangeCodeForSession`(구글/카카오)이 옛 값을 읽어 **교환 자체가 실패 → `?error=auth_failed` 무한 루프**. 그래서 **콜백 실패 경로에도** 정리 호출(다음 시도가 깨끗한 상태에서 성공).
+
+### 결과
+- 본인 계정: `jjangsaem.com` 쿠키 수동 삭제로 **즉시 복구 확인 ✅**.
+- 다른 기존 사용자: 다음 로그인 시도/보호페이지 방문 시 옛 쿠키가 자동 제거되어 **별도 안내 없이 복구**.
+
+### Git (책방, push·배포 완료)
+- `b5b5758` fix(auth): 서브도메인 SSO 전환 후 옛 호스트 전용 세션 쿠키 정리
+- `fdd8154` fix(auth): 옛 쿠키 정리에 code-verifier 포함 + 콜백 실패 경로에도 적용
+
+### 교훈 (다음에 쿠키 도메인 바꿀 때)
+- **쿠키 도메인을 바꾸면 기존 사용자에게 같은 이름 쿠키가 2벌 생긴다 → 반드시 옛 것 정리 로직을 함께 배포할 것.** 안 하면 "시크릿은 되는데 일반 창은 안 됨" 장애가 난다.
+- 진단 1순위: **시크릿 창 테스트** + DevTools→Application→Cookies에서 **같은 이름 쿠키가 Domain만 다르게 2개** 있는지 확인.
+
+---
+
 ## 2026-06-11 — 반응 감지 수정 + 리포트 개선 + 로그인/SSO + 짱샘 브랜딩
 
 > 이 세션에서 센스트랙을 **짱샘의 책방 "도구"** 로 편입(같은 Supabase 프로젝트 공유)하고,
@@ -50,7 +85,7 @@
 - **반드시 `sensetrack.jjangsaem.com`에서 테스트.** `sense-track.vercel.app`은 OAuth 리다이렉트가 책방으로 폴백되고 쿠키 SSO도 불가(다른 도메인).
 - **쿠키 도메인 SSO 패턴**: `@supabase/ssr` + `cookieOptions.domain='.jjangsaem.com'`을 **host가 jjangsaem.com 계열일 때만**(vercel.app/localhost는 미지정). 세션 쿠키 발급하는 **모든 곳**에 적용해야 함.
 - **네이버는 Supabase 네이티브 불가** → 책방 커스텀 라우트 경유만 가능.
-- 쿠키 도메인 변경으로 기존 책방 로그인 사용자는 **1회 재로그인** 필요할 수 있음(데이터 영향 없음).
+- 쿠키 도메인 변경으로 기존 책방 로그인 사용자는 **1회 재로그인** 필요할 수 있음(데이터 영향 없음). → ⚠️ **실제로 로그인 장애 발생, 핫픽스 완료.** 위 "책방 로그인 장애 핫픽스" 섹션 참고(옛 호스트 전용 쿠키 자동 정리).
 - 책방은 **프로덕션 매출 서비스** → 변경 시 신중히(브랜치→검토→머지).
 
 ---
@@ -116,7 +151,7 @@
 
 ## 다음에 할 일 (TODO)
 
-- [ ] **kungkung·italk 도구도 SSO 합류** — 같은 jjangsaem.com 서브도메인이므로, 각 repo에 책방의 `src/lib/supabase/cookie-domain.ts` + `src/lib/auth/safe-redirect.ts` 패턴을 적용(세션 쿠키 발급 모든 곳에 `cookieOptions.domain='.jjangsaem.com'` 조건부). 같은 Supabase 프로젝트면 자동으로 SSO에 묶임. *(사용자가 별도 세션에서 진행 예정)*
+- [ ] **kungkung·italk 도구도 SSO 합류** — 같은 jjangsaem.com 서브도메인이므로, 각 repo에 책방의 `src/lib/supabase/cookie-domain.ts` + `src/lib/auth/safe-redirect.ts` + **`src/lib/supabase/legacy-cookie-cleanup.ts`**(옛 호스트 전용 쿠키 정리 — 위 장애 재발 방지에 필수) 패턴을 적용(세션 쿠키 발급 모든 곳에 `cookieOptions.domain='.jjangsaem.com'` 조건부 + 콜백·미들웨어에서 옛 쿠키 정리). 같은 Supabase 프로젝트면 자동으로 SSO에 묶임. *(사용자가 별도 세션에서 진행 예정)*
 - [ ] (선택) **"지난 측정 대비"를 로그인 사용자 Supabase 기록 기반으로** — 현재는 기기 localStorage. `0002`에 본인 행 SELECT 정책 이미 있으니, 로그인 시 직전 세션을 DB에서 읽어 비교하면 기기 바뀌어도 이어짐.
 - [ ] (선택) **네이버 외부 복귀 매끄러움 추가 검증** — 배포 후 동작 확인됨. 엣지(팝업 차단, 세션 만료 등) 점검.
 - [ ] (선택) `PROJECT_ANALYSIS.html`을 새 아키텍처 기준으로 갱신 (현재는 변경 전 스냅샷).
